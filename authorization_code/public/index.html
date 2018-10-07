@@ -19,64 +19,77 @@
   <body>
     <div class="container">
       <div id="login">
-        <h1>This is an example of the Authorization Code flow</h1>
+        <h1>Log in to your Spotify account</h1>
+        <p>By allowing access to your account, we will retrieve information related to your public profile</p>
         <a href="/login" class="btn btn-primary">Log in with Spotify</a>
       </div>
-      <div id="loggedin">
+     <!--  <div id="loggedin">
         <div id="user-profile">
         </div>
-        <div id="oauth">
+         
+        <button class="btn btn-info" id="obtain-new-token">Obtain new token using the refresh token</button>
+        <div id="top3"></div>
+      </div> -->
+       <div id="loggedin">
+        <div id="user-profile">
+          <div id = "welcome-msg"></div>
+          <div class="media">
+            <div id = "profile-picture" class="pull-left"></div>
+            <div class = "media-body">
+              <dl class="dl-horizontal">
+                <dt>Display name</dt><dd id = "display-name" class="clearfix"></dd>
+                <dt>Id</dt><dd id = "id"></dd>
+                <dt>Email</dt><dd id = "email"></dd>
+                <dt>Spotify URI</dt><dd id = "external_urls"></dd>
+                <dt>Spotify Developer Account</dt><dd id = "href"></dd>
+                <dt>Country</dt><dd id = "country"></dd>
+              </dl>
+              <button class="btn btn-info" id="obtain-top3">Obtain user top3 tracks</button>
+              <table id="top3" class = "table table-bordered table-striped"></table>
+            </div>
+          </div>
         </div>
-         <div id="top3">
-        </div>
-        <button class="btn btn-default" id="obtain-new-token">Obtain new token using the refresh token</button>
       </div>
     </div>
 
-    <script id="user-profile-template" type="text/x-handlebars-template">
-      <h1>Logged in as {{display_name}}</h1>
-      <div class="media">
-        <div class="pull-left">
-          <img class="media-object" width="150" src="{{images.0.url}}" />
-        </div>
-        <div class="media-body">
-          <dl class="dl-horizontal">
-            <dt>Display name</dt><dd class="clearfix">{{display_name}}</dd>
-            <dt>Id</dt><dd>{{id}}</dd>
-            <dt>Email</dt><dd>{{email}}</dd>
-            <dt>Spotify URI</dt><dd><a href="{{external_urls.spotify}}">{{external_urls.spotify}}</a></dd>
-            <dt>Link</dt><dd><a href="{{href}}">{{href}}</a></dd>
-            <dt>Profile Image</dt><dd class="clearfix"><a href="{{images.0.url}}">{{images.0.url}}</a></dd>
-            <dt>Country</dt><dd>{{country}}</dd>
-          </dl>
-        </div>
-      </div>
-    </script>
-
-
-    <script id="oauth-template" type="text/x-handlebars-template">
-      <h2>oAuth info</h2>
-      <dl class="dl-horizontal">
-        <dt>Access token</dt><dd class="text-overflow">{{access_token}}</dd>
-        <dt>Refresh token</dt><dd class="text-overflow">{{refresh_token}}</dd>
-      </dl>
-    </script>
-
-       <script id="user-top3-template" type="text/x-handlebars-template">
-        <div>
-          <dl class="dl-horizontal">
-            <dt>Artist </dt><dd class="clearfix">{{items.0.artists.0.name}}</dd>
-            <dt>Name</dt><dd>{{items.0.name}}</dd>
-            <dt>Album</dt><dd>{{items.0.album.name}}</dd>
-          </dl>
-        </div>
-    </script>
-
-    <script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0-alpha.1/handlebars.min.js"></script>
     <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
+
     <script>
       (function() {
 
+        function buildUserProfile(response) {
+           var content = "<h1>Logged in as " + response.display_name + "</h1>";
+           document.getElementById("welcome-msg").innerHTML = content;
+           document.getElementById("display-name").innerHTML = response.display_name;
+           document.getElementById("id").innerHTML = response.id;
+           document.getElementById("email").innerHTML = response.email;
+           document.getElementById("external_urls").innerHTML = "<a href=\"" + response.external_urls.spotify + "\">" + response.external_urls.spotify + "</a>"; 
+           document.getElementById("href").innerHTML = "<a href=\"" + response.href + "\">" + response.href + "</a>";
+           document.getElementById("country").innerHTML = response.country;
+           if (response.images.length != 0) {
+               document.getElementById("profile-picture").innerHTML = "<a href=\"" + response.images[0].url + "\"><img src=\"" + response.images[0].url + "\"></a>";
+           } else {
+              image_url = "https://underconstructionpage.com/app/wp-content/uploads/2017/10/interview-no-image.png"
+              document.getElementById("profile-picture").innerHTML = "<a href=\"" + image_url + "\"><img src=\"" + image_url + "\"></a>";
+           }
+        }
+
+        function buildTop3(tracks_data) {
+          console.log(tracks_data);
+          var table = "<tr><th>Artist</th><th>Track</th><th>Album</th></tr>";
+          for (i = 0; i < tracks_data.items.length && i < 3; i++) { 
+            row = "<tr>"
+            row += "<td>" + tracks_data.items[i].artists[0].name +"</td>";
+            row += "<td>" + tracks_data.items[i].name +"</td>";
+            row += "<td> " + tracks_data.items[i].album.name +"</td>";
+            row += "</tr>";
+            table += row;
+           }
+
+           document.getElementById("top3").innerHTML = table;
+        }
+
+      
         /**
          * Obtains parameters from the hash of the URL
          * @return Object
@@ -90,78 +103,40 @@
           }
           return hashParams;
         }
-
-        var userProfileSource = document.getElementById('user-profile-template').innerHTML,
-            userProfileTemplate = Handlebars.compile(userProfileSource),
-            userProfilePlaceholder = document.getElementById('user-profile');
-
-        var top3Source = document.getElementById('user-top3-template').innerHTML,
-            top3Template = Handlebars.compile(top3Source),
-            top3Placeholder = document.getElementById('top3');
-
-        var oauthSource = document.getElementById('oauth-template').innerHTML,
-            oauthTemplate = Handlebars.compile(oauthSource),
-            oauthPlaceholder = document.getElementById('oauth');
-
+       
         var params = getHashParams();
-
         var access_token = params.access_token,
             refresh_token = params.refresh_token,
             error = params.error;
-
         if (error) {
           alert('There was an error during the authentication');
         } else {
           if (access_token) {
-            // render oauth info
-            oauthPlaceholder.innerHTML = oauthTemplate({
-              access_token: access_token,
-              refresh_token: refresh_token
-            });
-
             $.ajax({
                 url: 'https://api.spotify.com/v1/me',
                 headers: {
                   'Authorization': 'Bearer ' + access_token
                 },
                 success: function(response) {
-                  userProfilePlaceholder.innerHTML = userProfileTemplate(response);
-
                   $('#login').hide();
                   $('#loggedin').show();
+                  buildUserProfile(response);
                 }
             });
-
-
-            $.ajax({
-                url: 'https://api.spotify.com/v1/me/top/tracks',
-                headers: {
-                  'Authorization': 'Bearer ' + access_token
-                },
-                success: function(response) {
-                  console.log(response);
-                  top3Placeholder.innerHTML = top3Template(response);
-                }
-            });
-
           } else {
               // render initial screen
               $('#login').show();
               $('#loggedin').hide();
           }
 
-          document.getElementById('obtain-new-token').addEventListener('click', function() {
+          document.getElementById('obtain-top3').addEventListener('click', function() {
             $.ajax({
-              url: '/refresh_token',
-              data: {
-                'refresh_token': refresh_token
-              }
+             url: 'https://api.spotify.com/v1/me/top/tracks',
+                headers: {
+                  'Authorization': 'Bearer ' + access_token
+                },
             }).done(function(data) {
-              access_token = data.access_token;
-              oauthPlaceholder.innerHTML = oauthTemplate({
-                access_token: access_token,
-                refresh_token: refresh_token
-              });
+              buildTop3(data);
             });
           }, false);
         }
@@ -169,4 +144,3 @@
     </script>
   </body>
 </html>
-
